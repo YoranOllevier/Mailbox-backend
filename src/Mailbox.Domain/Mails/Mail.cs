@@ -27,7 +27,7 @@ public class Mail : Entity
     public ISet<Account> To
     {
         get => _to;
-        private set => _to = Guard.Against.Null(value);
+        set => _to = Guard.Against.Null(value);
     }
 
     public string Subject
@@ -45,7 +45,11 @@ public class Mail : Entity
     public DateTime SentOn
     {
         get => _sentOn;
-        set => _sentOn = Guard.Against.Null(value);
+        set
+        {
+            if(IsSent)
+                _sentOn = Guard.Against.Null(value);
+        }
     }
 
     public bool IsRead
@@ -69,7 +73,7 @@ public class Mail : Entity
     public ISet<Label> Labels
     {
         get => _labels;
-        private set => _labels = Guard.Against.Null(value);
+        set => _labels = Guard.Against.Null(value);
     }
     #endregion
     
