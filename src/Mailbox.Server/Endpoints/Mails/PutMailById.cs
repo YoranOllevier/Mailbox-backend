@@ -15,6 +15,6 @@ public class PutMailById(IMailService mailService) : Endpoint<MailRequest.PutMai
     {
         var accountId = Route<int>("accountId");
         var mailId = Route<int>("mailId");
-        return mailService.PutDraftByIdAsync(accountId, mailId, req, ct);
+        return mailService.PutByIdAsync(accountId, mailId, req, ct);
     }
 }

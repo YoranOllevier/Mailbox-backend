@@ -7,13 +7,13 @@ public class DeleteMailBySelf(IMailService mailService) : EndpointWithoutRequest
 {
     public override void Configure()
     {
-        Delete("/api/mails/{mailId:int}/self");
+        Delete("api/mails/{id:int}/self");
         Roles(AppRoles.User);
     }
 
     public override Task<Result<MailRespone.DeleteMail>> ExecuteAsync(CancellationToken ct)
     {
-        var mailId = Route<int>("mailId");  
-        return mailService.DeleteMailBySelfAsync(mailId,ct);
+        var id = Route<int>("id");
+        return mailService.DeleteMailBySelfAsync(id, ct);
     }
 }

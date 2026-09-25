@@ -15,6 +15,7 @@ public static class MailDto
         public required bool IsRead {get; set;}
         public required bool IsSent {get; set;}
         public required bool IsStarred {get; set;}
+        public required bool IsDeleted {get; set;}
         public required ICollection<LabelDto.Simple> Labels {get; set;}
     }
     
@@ -29,6 +30,7 @@ public static class MailDto
         public required bool IsRead {get; set;}
         public required bool IsSent {get; set;}
         public required bool IsStarred {get; set;}
+        public required bool IsDeleted {get; set;}
         public required ICollection<LabelDto.Simple> Labels {get; set;}
     }
 }

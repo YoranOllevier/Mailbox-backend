@@ -14,81 +14,45 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
 {
     #region Get
 
-    public async Task<Result<MailRespone.GetMails>> GetInboxByIdAsync(int accountId, CancellationToken ct)
+    public async Task<Result<MailRespone.GetMails>> GetMailsAsync(MailRequest.GetMail filters, CancellationToken ct)
     {
-        var account = await dbContext.Accounts.Where(a => a.Id == accountId).FirstOrDefaultAsync(ct);
-        if (account is null)
-            throw new ArgumentException($"Account with ID {accountId} not found");
-        
-        var mails = await dbContext.Mails
+        var account = await dbContext.Accounts.Where(a => a.Id == filters.From).FirstOrDefaultAsync(ct);
+
+        var query = dbContext.Mails
             .Include(m => m.To)
             .Include(m => m.Labels)
-            .Where(m => m.To.Any(a => a.Id == account.Id) && m.IsSent).ToListAsync(ct);
+            .Where(m => true);
+        if (filters.IsSent.HasValue)
+            query = query.Where(m => m.IsSent == filters.IsSent);
+        if (filters.IsDeleted.HasValue)
+            query = query.Where(m => m.IsDeleted == filters.IsDeleted);
+        if (filters.IsStarred.HasValue)
+            query = query.Where(m => m.IsStarred == filters.IsStarred);
+        if(filters.From is not null)
+            query = filters.To is not null 
+                ? query.Where(m => m.From.Id == filters.From || m.To.Any(a => a.Id == filters.To)) 
+                : query.Where(m => m.From.Id == filters.From);
+        else if(filters.To is not null)
+            query = query.Where(m => m.To.Any(a => a.Id == filters.To));
+        if(filters.Subject is not null)
+            query = query.Where(m => m.Subject.Contains(filters.Subject));
+        if(filters.Body is not null)
+            query = query.Where(m => m.Body.Contains(filters.Body));
+        if(filters.Include is not null)
+            query = query.Where(m => filters.Include.All(s => m.Labels.Any(l => l.Name.ToLower() == s.ToLower())));
+        if(filters.Exclude is not null)
+            query = query.Where(m => filters.Exclude.All(s => m.Labels.All(l => l.Name.ToLower() != s.ToLower())));
+        if(filters.Max.HasValue)
+            query = query.Take(filters.Max.Value);
+        
+        var mails = await query.ToListAsync(ct);
 
         var dtos = mails.Select(MailToSimpleDto).ToList().AsReadOnly();
         
         return Result.Success(new MailRespone.GetMails{Mails = dtos, Total = mails.Count});
     }
 
-    public async Task<Result<MailRespone.GetMails>> GetInboxBySelfAsync(CancellationToken ct)
-    {
-        var user = sessionContextProvider.User;
-        if (user is null)
-            throw new UnauthorizedAccessException("You are not logged in");
-
-        var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.UserId == user.GetUserId(), ct);
-        if (account is null)
-            throw new ArgumentException("Account not found");
-        
-        return await GetInboxByIdAsync(account.Id, ct);
-    }
-
-    public async Task<Result<MailRespone.GetMails>> GetAllByIdAsync(int accountId, CancellationToken ct)
-    {
-        var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, ct);
-        if (account is null)
-            throw new ArgumentException($"Account with ID {accountId} not found");
-        
-        var mails = await dbContext.Mails
-            .Include(m => m.To)
-            .Include(m => m.Labels)
-            .Where(m => m.To.Any(a => a.Id == account.Id) || m.From.Id == account.Id).ToListAsync(ct);
-
-        var dtos = mails.Select(MailToSimpleDto).ToList().AsReadOnly();
-        
-        return Result.Success(new MailRespone.GetMails{Mails = dtos, Total = mails.Count});
-    }
-
-    public async Task<Result<MailRespone.GetMails>> GetAllBySelfAsync(CancellationToken ct)
-    {
-        var user = sessionContextProvider.User;
-        if (user is null)
-            throw new UnauthorizedAccessException("You are not logged in");
-
-        var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.UserId == user.GetUserId(), ct);
-        if (account is null)
-            throw new ArgumentException("Account not found");
-        
-        return await GetAllByIdAsync(account.Id, ct);
-    }
-
-    public async Task<Result<MailRespone.GetMails>> GetSentByIdAsync(int accountId, CancellationToken ct)
-    {
-        var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, ct);
-        if (account is null)
-            throw new ArgumentException($"Account with ID {accountId} not found");
-        
-        var mails = await dbContext.Mails
-            .Include(m => m.To)
-            .Include(m => m.Labels)
-            .Where(m => m.From.Id == account.Id && m.IsSent).ToListAsync(ct);
-
-        var dtos = mails.Select(MailToSimpleDto).ToList().AsReadOnly();
-        
-        return Result.Success(new MailRespone.GetMails{Mails = dtos, Total = mails.Count});
-    }
-
-    public async Task<Result<MailRespone.GetMails>> GetSentBySelfAsync(CancellationToken ct)
+    public async Task<Result<MailRespone.GetMails>> GetMailsToSelfAsync(MailRequest.GetMail filters, CancellationToken ct)
     {
         var user = sessionContextProvider.User;
         if (user is null)
@@ -98,27 +62,27 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         if (account is null)
             throw new ArgumentException("Account not found");
 
-        return await GetSentByIdAsync(account.Id, ct);
+        filters.To = account.Id;
+        
+        return await GetMailsAsync(filters, ct);
+    }
+
+    public async Task<Result<MailRespone.GetMails>> GetMailsBySelfAsync(MailRequest.GetMail filters, CancellationToken ct)
+    {
+        var user = sessionContextProvider.User;
+        if (user is null)
+            throw new UnauthorizedAccessException("You are not logged in");
+
+        var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.UserId == user.GetUserId(), ct);
+        if (account is null)
+            throw new ArgumentException("Account not found");
+
+        filters.From = account.Id;
+        
+        return await GetMailsAsync(filters, ct);
     }
     
-    
-    public async Task<Result<MailRespone.GetMails>> GetDraftsByIdAsync(int accountId, CancellationToken ct)
-    {
-        var account = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, ct);
-        if (account is null)
-            throw new ArgumentException($"Account with ID {accountId} not found");
-        
-        var mails = await dbContext.Mails
-            .Include(m => m.To)
-            .Include(m => m.Labels)
-            .Where(m => m.From.Id == account.Id && !m.IsSent).ToListAsync(ct);
-
-        var dtos = mails.Select(MailToSimpleDto).ToList().AsReadOnly();
-        
-        return Result.Success(new MailRespone.GetMails{Mails = dtos, Total = mails.Count});
-    }
-
-    public async Task<Result<MailRespone.GetMails>> GetDraftsBySelfAsync(CancellationToken ct)
+    public async Task<Result<MailRespone.GetMails>> GetMailsForSelfAsync(MailRequest.GetMail filters, CancellationToken ct)
     {
         var user = sessionContextProvider.User;
         if (user is null)
@@ -128,7 +92,10 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         if (account is null)
             throw new ArgumentException("Account not found");
 
-        return await GetDraftsByIdAsync(account.Id, ct);
+        filters.To = account.Id;
+        filters.From = account.Id;
+        
+        return await GetMailsAsync(filters, ct);
     }
 
     public async Task<Result<MailDto.Detailed>> GetMailByIdAsync(int mailId, CancellationToken ct)
@@ -162,12 +129,12 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         
         return Result.Success(MailToDetailedDto(mail));
     }
-    
+
     #endregion
 
     #region Post
     
-    public async Task<Result<MailRespone.PostMail>> PostDraftByIdAsync(int accountId, MailRequest.PostMail req, CancellationToken ct)
+    public async Task<Result<MailRespone.PostMail>> PostByIdAsync(int accountId, MailRequest.PostMail req, CancellationToken ct)
     {
         var from = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, ct);
         
@@ -185,7 +152,7 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
             mail.IsStarred = req.IsStarred.Value;
         
         if(req.Labels is not null)
-            mail.Labels = dbContext.Labels.Where(l => req.Labels.Contains(l.Id)).ToHashSet();
+            mail.Labels = dbContext.Labels.Where(l => req.Labels.Contains(l.Name) && (l.Owner == null || l.Owner.Id == accountId)).ToHashSet();
         
         await dbContext.Mails.AddAsync(mail,ct);
         
@@ -193,7 +160,7 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         return Result.Success(new MailRespone.PostMail{Id = mail.Id});
     }
 
-    public async Task<Result<MailRespone.PostMail>> PostDraftBySelfAsync(MailRequest.PostMail req, CancellationToken ct)
+    public async Task<Result<MailRespone.PostMail>> PostBySelfAsync(MailRequest.PostMail req, CancellationToken ct)
     {
         var user = sessionContextProvider.User;
         if (user is null)
@@ -203,14 +170,14 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         if (account is null)
             throw new ArgumentException("Account not found");
     
-        return await PostDraftByIdAsync(account.Id, req, ct);
+        return await PostByIdAsync(account.Id, req, ct);
     }
 
     #endregion
     
     #region Put
 
-    public async Task<Result<MailRespone.PutMail>> PutDraftByIdAsync(int accountId, int mailId, MailRequest.PutMail req, CancellationToken ct)
+    public async Task<Result<MailRespone.PutMail>> PutByIdAsync(int accountId, int mailId, MailRequest.PutMail req, CancellationToken ct)
     {
         var from = await dbContext.Accounts.FirstOrDefaultAsync(a => a.Id == accountId, ct);
         
@@ -237,15 +204,18 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         if (req.IsStarred is not null)
             mail.IsStarred = req.IsStarred.Value;
         
+        if(req.IsDeleted is not null)
+            mail.IsDeleted = req.IsDeleted.Value;
+        
         if(req.Labels is not null)
-            mail.Labels = dbContext.Labels.Where(l => req.Labels.Contains(l.Id)).ToHashSet();
+            mail.Labels = dbContext.Labels.Where(l => req.Labels.Contains(l.Name) && (l.Owner == null || l.Owner.Id == accountId)).ToHashSet();
         
         dbContext.Mails.Update(mail);
         await dbContext.SaveChangesAsync(ct);
         return Result.Success(new MailRespone.PutMail{Id = mail.Id});
     }
 
-    public async Task<Result<MailRespone.PutMail>> PutDraftBySelfAsync(int mailId, MailRequest.PutMail req, CancellationToken ct)
+    public async Task<Result<MailRespone.PutMail>> PutBySelfAsync(int mailId, MailRequest.PutMail req, CancellationToken ct)
     {
         var user = sessionContextProvider.User;
         if (user is null)
@@ -255,7 +225,7 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         if (account is null)
             throw new ArgumentException("Account not found");
         
-        return await PutDraftByIdAsync(account.Id, mailId, req, ct);
+        return await PutByIdAsync(account.Id, mailId, req, ct);
     }
     
     public async Task<Result<MailRespone.SendMail>> SendMailByIdAsync(int accountId, int mailId, CancellationToken ct)
@@ -286,13 +256,13 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         return await SendMailByIdAsync(account.Id, mailId, ct);
     }
 
-    public async Task<Result<MailRespone.ReadMail>> ReadMailByIdAsync(int accountId, int mailId, CancellationToken ct)
+    public async Task<Result<MailRespone.ReadMail>> ReadMailByIdAsync(int accountId, int mailId, MailRequest.ReadMail req, CancellationToken ct)
     {
         var mail = dbContext.Mails.FirstOrDefault(m => m.Id == mailId && m.To.Any(a => a.Id == accountId));
         if (mail is null)
             throw new ArgumentException($"Mail with ID {mailId} not found");
         
-        mail.IsRead = true;
+        mail.IsRead = req.isRead;
         
         dbContext.Mails.Update(mail);
         await dbContext.SaveChangesAsync(ct);
@@ -300,7 +270,7 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         return Result.Success(new MailRespone.ReadMail{Id = mail.Id});
     }
 
-    public async Task<Result<MailRespone.ReadMail>> ReadMailBySelfAsync(int mailId, CancellationToken ct)
+    public async Task<Result<MailRespone.ReadMail>> ReadMailBySelfAsync(int mailId, MailRequest.ReadMail req, CancellationToken ct)
     {
         var user = sessionContextProvider.User;
         if (user is null)
@@ -310,16 +280,16 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         if (account is null)
             throw new ArgumentException("Account not found");
         
-        return await ReadMailByIdAsync(account.Id, mailId, ct);
+        return await ReadMailByIdAsync(account.Id, mailId, req, ct);
     }
 
     #endregion
 
     #region Delete
 
-    public async Task<Result<MailRespone.DeleteMail>> DeleteMailByIdAsync(int accountId, int mailId, CancellationToken ct)
+    public async Task<Result<MailRespone.DeleteMail>> DeleteMailByIdAsync(int mailId, CancellationToken ct)
     {
-        var mail = dbContext.Mails.FirstOrDefault(m => m.Id == mailId && (m.From.Id == accountId || m.To.Any(a => a.Id == accountId)));
+        var mail = dbContext.Mails.FirstOrDefault(m => m.Id == mailId);
         if (mail is null)
             throw new ArgumentException($"Mail with ID {mailId} not found");
         
@@ -339,7 +309,14 @@ public class MailService(ApplicationDbContext dbContext, ISessionContextProvider
         if (account is null)
             throw new ArgumentException("Account not found");
 
-        return await DeleteMailByIdAsync(account.Id, mailId, ct);
+        var mail = dbContext.Mails.FirstOrDefault(m => m.Id == mailId && (m.From.Id == account.Id || m.To.Any(a => a.Id == account.Id)));
+        if (mail is null)
+            throw new ArgumentException($"Mail with ID {mailId} not found");
+        
+        dbContext.Mails.Remove(mail);
+        await dbContext.SaveChangesAsync(ct);
+        
+        return Result.Success(new MailRespone.DeleteMail{Id = mail.Id});
     }
     
     #endregion

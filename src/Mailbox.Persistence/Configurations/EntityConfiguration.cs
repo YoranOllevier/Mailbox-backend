@@ -26,7 +26,5 @@ internal class EntityConfiguration<TEntity> : IEntityTypeConfiguration<TEntity> 
         // IsDeleted should be false by default, used for softdelete.
         builder.Property(e => e.IsDeleted)
             .HasDefaultValue(false);
-        
-        builder.HasQueryFilter(e => !e.IsDeleted);
     }
 }

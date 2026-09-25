@@ -14,6 +14,6 @@ public class PostMailById(IMailService mailService) : Endpoint<MailRequest.PostM
     public override Task<Result<MailRespone.PostMail>> ExecuteAsync(MailRequest.PostMail req, CancellationToken ct)
     {
         var id = Route<int>("id");
-        return mailService.PostDraftBySelfAsync(req, ct);
+        return mailService.PostBySelfAsync(req, ct);
     }
 }

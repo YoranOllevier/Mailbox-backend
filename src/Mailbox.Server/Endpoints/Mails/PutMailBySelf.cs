@@ -14,6 +14,6 @@ public class PutMailBySelf(IMailService mailService) : Endpoint<MailRequest.PutM
     public override Task<Result<MailRespone.PutMail>> ExecuteAsync(MailRequest.PutMail req, CancellationToken ct)
     {
         var mailId = Route<int>("mailId");
-        return mailService.PutDraftBySelfAsync(mailId, req, ct);
+        return mailService.PutBySelfAsync(mailId, req, ct);
     }
 }

@@ -7,3 +7,18 @@ public partial class MailRespone
         public required int Id { get; set; }
     }
 }
+
+public partial class MailRequest
+{
+    public class ReadMail
+    {
+        public bool isRead { get; set; }
+    
+        public class Validator : AbstractValidator<ReadMail>
+        {
+            public Validator()
+            {
+            }
+        }
+    }
+}

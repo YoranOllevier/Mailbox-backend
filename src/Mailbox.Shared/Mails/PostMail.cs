@@ -16,7 +16,7 @@ public partial class MailRequest{
         public string? Body { get; set; }
         public List<int>? To { get; set; }
         public bool? IsStarred { get; set; }
-        public List<int>? Labels { get; set; }
+        public List<string>? Labels { get; set; }
 
         public class Validator : AbstractValidator<PostMail>
         {

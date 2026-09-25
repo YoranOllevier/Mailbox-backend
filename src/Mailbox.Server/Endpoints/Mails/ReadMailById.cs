@@ -3,7 +3,7 @@ using Mailbox.Shared.Mails;
 
 namespace Mailbox.Server.Endpoints.Mails;
 
-public class ReadMailById(IMailService mailService) : EndpointWithoutRequest<Result<MailRespone.ReadMail>>
+public class ReadMailById(IMailService mailService) : Endpoint<MailRequest.ReadMail,Result<MailRespone.ReadMail>>
 {
     public override void Configure()
     {
@@ -11,10 +11,10 @@ public class ReadMailById(IMailService mailService) : EndpointWithoutRequest<Res
         Roles(AppRoles.Admin);
     }
 
-    public override Task<Result<MailRespone.ReadMail>> ExecuteAsync(CancellationToken ct)
+    public override Task<Result<MailRespone.ReadMail>> ExecuteAsync(MailRequest.ReadMail req, CancellationToken ct)
     {
         var mailId = Route<int>("mailId");  
         var accountId = Route<int>("accountId");
-        return mailService.ReadMailByIdAsync(accountId, mailId,ct);
+        return mailService.ReadMailByIdAsync(accountId, mailId, req, ct);
     }
 }

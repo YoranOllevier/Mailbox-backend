@@ -68,6 +68,7 @@ public static class Mappers
             IsRead = mail.IsRead,
             IsSent = mail.IsSent,
             IsStarred = mail.IsStarred,
+            IsDeleted = mail.IsDeleted,
             Labels = mail.Labels.Select(LabelToSimpleDto).ToArray(),
         };
     }
@@ -85,6 +86,7 @@ public static class Mappers
             IsRead = mail.IsRead,
             IsSent = mail.IsSent,
             IsStarred = mail.IsStarred,
+            IsDeleted = mail.IsDeleted,
             Labels = mail.Labels.Select(LabelToSimpleDto).ToArray(),
         };
     }

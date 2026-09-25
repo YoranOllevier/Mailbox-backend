@@ -13,6 +13,6 @@ public class PostMailBySelf(IMailService mailService) : Endpoint<MailRequest.Pos
 
     public override Task<Result<MailRespone.PostMail>> ExecuteAsync(MailRequest.PostMail req, CancellationToken ct)
     {
-        return mailService.PostDraftBySelfAsync(req, ct);
+        return mailService.PostBySelfAsync(req, ct);
     }
 }
